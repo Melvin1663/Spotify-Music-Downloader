@@ -8,6 +8,8 @@ const axios = require('axios');
 
 ffmpeg.setFfmpegPath(ffmpegStatic);
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 function validFileName(string) {
   if (!string || string.length > 255 || /[<>:"/\\|?*\u0000-\u001F]/g.test(string) || /^(con|prn|aux|nul|com\d|lpt\d)$/i.test(string) || string === '.' || string === '..') return false;
   return true;
@@ -65,7 +67,7 @@ async function main() {
       const musics = await searchMusics(`${song["Artist Name(s)"]} - ${song["Track Name"]}`);
       const tempImageFilePath = path.join(__dirname, 'temp_cover.jpg');
 
-      if (musics.length) {
+      if (musics.length && musics[0].youtubeId) {
         console.log(`\u001b[33mDownloading cover art: ${song["Album Image URL"]}`);
         let errDlArt = false;
         await downloadImage(song["Album Image URL"], tempImageFilePath).catch(e => {
@@ -107,14 +109,19 @@ async function main() {
               console.log(`\u001b[32mDownloaded and tagged ${song["Artist Name(s)"]} - ${song["Track Name"]}`);
               resolve();
             })
-            .on('error', (err) => {
+            .on('error', async (err) => {
               console.error(`\u001b[31mError processing ${song["Artist Name(s)"]} - ${song["Track Name"]}:`, err.message);
+              console.log('Sleeping for 1 minute');
+              await sleep(60000);
+
               failedDownloads.push(song);
               resolve();
             });
         })
-      } else console.log(`\u001b[33mNo YouTube stream data for ${song["Artist Name(s)"]} - ${song["Track Name"]}`);
-
+      } else {
+        console.log(`\u001b[33mNo YouTube stream data for ${song["Artist Name(s)"]} - ${song["Track Name"]}`);
+        failedDownloads.push(song);
+      }
       done++;
     }
 
